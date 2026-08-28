@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: chagok-backend
+
+chagok:
+  public-data:
+    base-url: https://apis.data.go.kr/1160100/service/GetSecuritiesProductInfoService
+    service-key: ${PUBLIC_DATA_SERVICE_KEY:}
+  google-sheets:
+    spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID:}
+    sheet-name: ${GOOGLE_SHEETS_SHEET_NAME:MarketData}
+    credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
