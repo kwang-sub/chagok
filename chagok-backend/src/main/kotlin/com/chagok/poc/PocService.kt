@@ -11,6 +11,8 @@ class PocService(
     private val publicEtfClient: PublicEtfClient,
     private val googleSheetsClient: GoogleSheetsClient,
 ) {
+    fun latestBaseDate(): String = publicEtfClient.latestBaseDate()
+
     fun searchEtfs(keyword: String?, page: Int, size: Int): List<EtfPriceItem> =
         publicEtfClient.search(keyword, page, size).response.body.items.item
 
@@ -19,8 +21,8 @@ class PocService(
             "ETF not found: $ticker"
         }
 
-        googleSheetsClient.upsertMarketData(ticker)
-        val marketData = googleSheetsClient.readMarketData()
+        val rowNumber = googleSheetsClient.upsertMarketData(ticker)
+        val marketData = googleSheetsClient.readMarketDataWithRetry(rowNumber)
 
         return PocMarketPriceResponse(
             ticker = ticker,

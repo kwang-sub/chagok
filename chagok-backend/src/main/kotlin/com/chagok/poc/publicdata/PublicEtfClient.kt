@@ -13,14 +13,27 @@ class PublicEtfClient(
 ) {
     private val restClient = restClientBuilder.build()
 
+    fun latestBaseDate(): String =
+        request(
+            linkedMapOf(
+                "resultType" to "json",
+                "pageNo" to "1",
+                "numOfRows" to "1",
+            ),
+        ).response.body.items.item
+            .firstOrNull()
+            ?.basDt
+            ?: error("공공데이터 API에서 최신 ETF 기준일을 확인할 수 없습니다.")
+
     fun search(keyword: String?, page: Int, size: Int): EtfPriceApiResponse {
         val queryParams = linkedMapOf(
             "resultType" to "json",
+            "basDt" to latestBaseDate(),
             "pageNo" to page.toString(),
             "numOfRows" to size.toString(),
         ).apply {
             if (!keyword.isNullOrBlank()) {
-                put("itmsNm", keyword)
+                put("likeItmsNm", keyword)
             }
         }
 
@@ -31,6 +44,7 @@ class PublicEtfClient(
         return request(
             linkedMapOf(
                 "resultType" to "json",
+                "basDt" to latestBaseDate(),
                 "pageNo" to "1",
                 "numOfRows" to "10",
                 "likeSrtnCd" to ticker,

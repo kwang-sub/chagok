@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RestController
 class PocController(
     private val pocService: PocService,
 ) {
+    @GetMapping("/etfs/latest-base-date")
+    fun latestBaseDate(): ResponseEntity<Map<String, String>> =
+        ResponseEntity.ok(mapOf("baseDate" to pocService.latestBaseDate()))
+
     @GetMapping("/etfs")
     fun searchEtfs(
         @RequestParam(required = false) keyword: String?,
