@@ -20,14 +20,17 @@ Kotlin + Spring Boot 기반 차곡 초기 PoC입니다.
 
 ## 필요한 환경변수
 
+`.env.example`을 참고합니다.
+
 ```text
-PUBLIC_DATA_SERVICE_KEY=<공공데이터포털 일반 인증키(Encoding 권장)>
+PUBLIC_DATA_SERVICE_KEY=<공공데이터포털 일반 인증키 Decoding 값>
 GOOGLE_SHEETS_SPREADSHEET_ID=<Google Sheet ID>
 GOOGLE_SHEETS_SHEET_NAME=MarketData
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/service-account.json
 ```
 
-Google 서비스 계정 이메일에 대상 Sheet의 편집 권한을 부여해야 합니다.
+`PUBLIC_DATA_SERVICE_KEY`는 Spring URI builder가 query parameter를 인코딩하므로 포털에서 제공하는 **Decoding 인증키**를 사용합니다.
+Google 서비스 계정 이메일에는 대상 Sheet의 편집 권한을 부여해야 합니다.
 
 ## Google Sheet 준비
 
@@ -67,6 +70,13 @@ POST /api/poc/etfs/360750/market-price
 -> 계산 결과 조회
 -> 공공데이터 기준일/종가 + Google Finance 값 반환
 ```
+
+## PoC 성공 기준
+
+- 공공데이터 API에서 실제 국내 ETF 종목이 조회된다.
+- 선택한 국내 ETF가 `GOOGLEFINANCE`에서 가격을 계산한다.
+- Google Sheets API에서 계산된 가격을 읽어 Spring Boot 응답으로 반환한다.
+- `tradetime`, `datadelay`, `changepct`의 국내 ETF 지원 여부를 실제 응답으로 확인한다.
 
 ## PoC 주의사항
 
