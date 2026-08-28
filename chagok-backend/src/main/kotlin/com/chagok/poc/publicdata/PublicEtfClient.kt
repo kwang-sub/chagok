@@ -2,7 +2,8 @@ package com.chagok.poc.publicdata
 
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import java.net.URLDecoder
+import java.net.URI
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Component
@@ -10,53 +11,67 @@ class PublicEtfClient(
     restClientBuilder: RestClient.Builder,
     private val properties: PublicDataProperties,
 ) {
-    private val restClient = restClientBuilder.baseUrl(properties.baseUrl).build()
+    private val restClient = restClientBuilder.build()
 
     fun search(keyword: String?, page: Int, size: Int): EtfPriceApiResponse {
-        return restClient.get()
-            .uri { builder ->
-                builder.path("/getETFPriceInfo")
-                    .queryParam("serviceKey", serviceKey())
-                    .queryParam("resultType", "json")
-                    .queryParam("pageNo", page)
-                    .queryParam("numOfRows", size)
-                    .apply {
-                        if (!keyword.isNullOrBlank()) {
-                            queryParam("itmsNm", keyword)
-                        }
-                    }
-                    .build()
+        val queryParams = linkedMapOf(
+            "resultType" to "json",
+            "pageNo" to page.toString(),
+            "numOfRows" to size.toString(),
+        ).apply {
+            if (!keyword.isNullOrBlank()) {
+                put("itmsNm", keyword)
             }
+        }
+
+        return request(queryParams)
+    }
+
+    fun findByTicker(ticker: String): EtfPriceItem? {
+        return request(
+            linkedMapOf(
+                "resultType" to "json",
+                "pageNo" to "1",
+                "numOfRows" to "10",
+                "likeSrtnCd" to ticker,
+            ),
+        ).response.body.items.item
+            .firstOrNull { it.srtnCd == ticker }
+    }
+
+    private fun request(queryParams: Map<String, String>): EtfPriceApiResponse {
+        return restClient.get()
+            .uri(buildUri(queryParams))
             .retrieve()
             .body(EtfPriceApiResponse::class.java)
             ?: EtfPriceApiResponse()
     }
 
-    fun findByTicker(ticker: String): EtfPriceItem? {
-        return restClient.get()
-            .uri { builder ->
-                builder.path("/getETFPriceInfo")
-                    .queryParam("serviceKey", serviceKey())
-                    .queryParam("resultType", "json")
-                    .queryParam("pageNo", 1)
-                    .queryParam("numOfRows", 10)
-                    .queryParam("likeSrtnCd", ticker)
-                    .build()
+    private fun buildUri(queryParams: Map<String, String>): URI {
+        val query = buildString {
+            append("serviceKey=")
+            append(encodedServiceKey())
+
+            queryParams.forEach { (name, value) ->
+                append('&')
+                append(encode(name))
+                append('=')
+                append(encode(value))
             }
-            .retrieve()
-            .body(EtfPriceApiResponse::class.java)
-            ?.response?.body?.items?.item
-            ?.firstOrNull { it.srtnCd == ticker }
+        }
+
+        return URI.create("${properties.baseUrl}/getETFPriceInfo?$query")
     }
 
-    private fun serviceKey(): String {
+    private fun encodedServiceKey(): String {
         val serviceKey = properties.serviceKey.trim()
         require(serviceKey.isNotBlank()) { "PUBLIC_DATA_SERVICE_KEY is required" }
 
-        return if ('%' in serviceKey) {
-            URLDecoder.decode(serviceKey, StandardCharsets.UTF_8)
-        } else {
-            serviceKey
-        }
+        // 공공데이터포털이 Encoding 키를 제공한 경우 해당 값을 그대로 사용한다.
+        // 미인코딩 키인 경우에만 한 번 인코딩하여 이중 인코딩을 방지한다.
+        return if ('%' in serviceKey) serviceKey else encode(serviceKey)
     }
+
+    private fun encode(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8)
 }
