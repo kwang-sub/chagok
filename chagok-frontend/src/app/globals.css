@@ -1,0 +1,4 @@
+* { box-sizing: border-box; }
+body { margin: 0; color: #20252b; background: #fafafa; font-family: system-ui, sans-serif; line-height: 1.6; }
+.app-shell { width: min(100%, 56rem); margin-inline: auto; padding: clamp(1.25rem, 5vw, 4rem); overflow-wrap: anywhere; }
+h1 { margin-top: 0; font-size: 2rem; }

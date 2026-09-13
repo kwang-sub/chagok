@@ -28,3 +28,9 @@ credentials*.json
 # JVM crash logs
 hs_err_pid*
 replay_pid*
+
+# >>> Hermes Agent managed >>>
+# Hermes 로컬 실행/상태 파일 (프로젝트 공용 파일은 Git 추적 유지)
+/.hermes/
+/.worktrees/
+# <<< Hermes Agent managed <<<
