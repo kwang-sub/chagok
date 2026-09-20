@@ -1,7 +1,7 @@
 # Chagok Frontend
 
 backend와 병렬인 독립 Next.js App Router + React + TypeScript 프로젝트입니다.
-현재 `/`는 시작 안내 셸이며 ETF 검색/시세 검증 UI와 SCR-* 승인 화면은 구현하지 않습니다.
+`/`는 dev 대시보드 UI이며 투자/내역 화면과 함께 로그인이 필요합니다. `/login`은 기존 디자인 토큰을 사용하는 독립 반응형 화면입니다. 금융 데이터는 UI fixture이며 실제 계좌 데이터가 아닙니다.
 
 ## 실행
 
@@ -10,11 +10,15 @@ Node.js 22.13 이상, npm 사용. Next/React 및 도구 버전은 package.json�
 ```sh
 cd chagok-frontend
 npm ci
-# API를 연결할 때 .env.example을 참고해 .env.local에 BACKEND_BASE_URL 설정
+# .env.example의 빈 변수들을 .env.local에 로컬 설정 (실제 값은 커밋하지 않음)
 npm run dev
 ```
 
-http://localhost:3000 에서 확인합니다. API를 호출하지 않는 셸은 backend나 환경 변수 없이 실행/빌드할 수 있습니다.
+http://localhost:3000 에서 확인합니다. 실행 시 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`가 필요합니다. Backend 연결 시 서버 전용 `BACKEND_BASE_URL`도 설정합니다. 빌드/단위 테스트에는 실제 자격증명이 필요하지 않습니다.
+
+Supabase에 이미 등록된 이메일/비밀번호로 로그인합니다. OAuth, 회원가입, 비밀번호 재설정은 제공하지 않습니다. SSR cookie는 proxy에서 갱신하며 페이지/Server Action의 서버 경계에서 `getUser(accessToken)`으로 사용자를 검증합니다. 로그아웃은 현재 로컬 세션을 종료합니다. publishable key만 허용하며 service_role 키나 JWT signing secret을 사용하지 않습니다.
+
+`npm ci`의 postinstall은 `patches/@supabase+auth-js+2.116.0.patch`를 적용합니다. 이 패치는 auth-js WebAuthn 선언과 TypeScript 6 DOM 타입 충돌을 해결하며 런타임 로직은 바꾸지 않습니다. 패치 실패 시 설치가 실패합니다. CI/build에는 devDependency인 patch-package도 필요하므로 dev dependency를 생략하지 마세요.
 
 ```sh
 npm test
@@ -43,12 +47,12 @@ ESLint 10 전환은 해당 plugin 호환 이후에 수행합니다.
 
 Server Component/Server Action에서 `src/features/poc/api.server.ts`의 `getPocClient()`를 호출합니다.
 이 entry는 `server-only`로 Client Component import를 막습니다. `client.ts`는 테스트 가능한 내부 wire adapter이며
-UI에서 직접 import하지 않습니다. 현재 셸은 API 호출을 하지 않습니다.
+UI에서 직접 import하지 않습니다. 현재 금융 UI는 실제 PoC API 호출 대신 fixture를 사용합니다.
 
 `BACKEND_BASE_URL`은 서버 runtime 환경 변수입니다. 예: `http://localhost:8080`.
 HTTP(S) origin만 허용하며 path/query/fragment/credentials는 금지합니다.
 `NEXT_PUBLIC_`로 노출하지 않습니다. 브라우저에서 backend를 직접 호출하지 않으므로 CORS 변경이나
-Next 프록시 endpoint를 추가하지 않았습니다. 인증/권한 정책은 이번 범위 밖입니다.
+Next 프록시 endpoint를 추가하지 않았습니다. 검증된 세션의 Bearer token만 서버에서 전달하며 Client Component props로 노출하지 않습니다. `/api/**`는 JWT가 없거나 유효하지 않으면 401, 권한 부족이면 403입니다. 인증은 가구별 데이터 인가를 뜻하지 않습니다. 상세 계약은 `../docs/api/authentication.md`를 따릅니다.
 
 | 메서드 | backend endpoint | client |
 |---|---|---|
@@ -70,5 +74,5 @@ wire 타입은 number입니다. JS JSON 파싱은 정밀도를 잃을 수 있으
 ## 디자인 및 검증 범위
 
 `../docs/ui/`의 승인 reference/screen-spec 계약은 후속 화면 작업에 그대로 적용합니다.
-현재 셸은 승인 화면이 아니며 디자인 conformance/regression baseline을 주장하지 않습니다.
-앱/API 구조 및 lint/build/unit test를 검증하며, 실제 backend 통합은 외부 서비스 자격증명을 필요로 하므로 별도입니다.
+로그인 화면은 dev UI 기반 CODE_DRIVEN/RESPONSIVE이며 승인된 시각 회귀 baseline을 주장하지 않습니다.
+앱/API 구조 및 lint/build/unit test를 검증합니다. 실제 Supabase 로그인·갱신·로그아웃과 실제 프로젝트 JWT/JWKS smoke test는 사용자 로컬 설정이 제공될 때까지 미실행입니다.

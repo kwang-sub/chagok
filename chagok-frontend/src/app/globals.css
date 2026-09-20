@@ -25,7 +25,7 @@ strong, b, td { font-variant-numeric: tabular-nums; }
 .skip-link { position: fixed; left: 15px; top: -100px; padding: 12px; background: white; z-index: 100; }
 .skip-link:focus { top: 15px; }
 .app-shell { min-height: 100vh; }
-.sidebar { width: 200px; position: fixed; inset: 0 auto 0 0; background: white; padding: 25px 18px; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; }
+.sidebar { width: 200px; position: fixed; inset: 0 auto 0 0; background: white; padding: 25px 18px; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 25px; font-weight: 800; letter-spacing: -1px; }
 .brand span { color: #219c75; font-size: 33px; }
 .sidebar nav { display: grid; gap: 7px; margin-top: 30px; }
@@ -33,6 +33,9 @@ strong, b, td { font-variant-numeric: tabular-nums; }
 .sidebar nav a > span { font-size: 22px; font-weight: 400; width: 22px; text-align: center; }
 [aria-current="page"] { color: var(--green); background: var(--green-soft); }
 .sidebar-footer { margin-top: auto; padding-top: 24px; font-size: 12px; color: var(--muted); }
+.sign-out-form { display: grid; gap: 8px; margin-top: 16px; }
+.sign-out-form button { width: 100%; }
+.sign-out-form [role="alert"] { color: #a52f3e; font-size: 12px; overflow-wrap: anywhere; }
 .household-avatar { padding: 12px 8px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; color: var(--text); font-weight: 700; }
 .main-content { margin-left: 200px; padding: 24px; max-width: 1760px; min-width: 0; }
 .mobile-header, .bottom-nav { display: none; }

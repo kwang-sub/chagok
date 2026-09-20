@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { requireSession } from "@/features/auth/session.server";
 
 const sections: Record<string, string> = { assets: "자산", debt: "부채", "net-worth": "순자산 추이", expenses: "지출", "cash-flow": "현금흐름", cards: "계좌·카드 실적", reports: "보고서", settings: "설정" };
-export function generateStaticParams() { return Object.keys(sections).map((section) => ({ section })); }
 export default async function PreviewPage({ params }: { params: Promise<{ section: string }> }) {
+  await requireSession();
   const { section } = await params;
   const title = sections[section];
   if (!title) notFound();

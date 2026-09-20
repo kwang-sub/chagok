@@ -1,6 +1,12 @@
 spring:
   application:
     name: chagok-backend
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SUPABASE_AUTH_ISSUER}
+          jwk-set-uri: ${SUPABASE_JWKS_URI}
 
 chagok:
   public-data:

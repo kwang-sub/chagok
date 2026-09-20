@@ -44,6 +44,12 @@ Ticker | Price | TradeTime | DataDelay | ChangePercent
 
 ## API
 
+모든 `/api/**` 호출에는 유효한 Supabase Bearer JWT가 필요합니다. `SUPABASE_AUTH_ISSUER`와 `SUPABASE_JWKS_URI`를 같은 프로젝트의 비대칭 서명 설정에 맞춰 로컬 환경에 지정합니다. `.env.example`은 빈 변수 목록이며 Spring 실행 환경에 직접 export하거나 실행 도구로 주입해야 합니다.
+
+RS256/ES256 서명, issuer, 만료/시간 및 필수 sub/exp를 검증합니다. 누락·만료·잘못된 JWT는 401, 인증 후 권한 부족은 403입니다. 브라우저는 backend를 직접 호출하지 않고 Next.js 서버 경계가 검증된 access token을 전달합니다. 기존 익명 PoC 호출은 더 이상 허용되지 않습니다. 사용자 식별자는 검증된 `sub`만 사용하며 가구별 데이터 인가는 별도 범위입니다.
+
+계약은 `../docs/api/authentication.md`를 따릅니다. service_role 키·JWT signing secret·실제 token을 예제나 저장소에 기록하지 않습니다. 보안 테스트는 로컬 fixture를 사용하며 실제 Supabase/JWKS smoke test는 로컬 설정 제공 전 미실행입니다.
+
 ### 최신 ETF 기준일 확인
 
 ```http
