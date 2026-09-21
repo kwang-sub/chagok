@@ -24,6 +24,8 @@ jobs:
           set -euo pipefail
           export PNPM_HOME="$RUNNER_TEMP/pnpm"
           export SHELL=/bin/sh
+          export ENV="$RUNNER_TEMP/pnpm-shrc"
+          touch "$ENV"
           curl -fsSL https://get.pnpm.io/install.sh -o "$RUNNER_TEMP/install-pnpm.sh"
           PNPM_VERSION=12.5.1 sh "$RUNNER_TEMP/install-pnpm.sh"
           echo "$PNPM_HOME" >> "$GITHUB_PATH"
