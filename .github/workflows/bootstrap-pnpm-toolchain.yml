@@ -1,0 +1,63 @@
+name: Bootstrap pnpm toolchain
+
+on:
+  push:
+    branches:
+      - feat/pnpm-node-toolchain
+    paths:
+      - chagok-frontend/package.json
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install standalone pnpm
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PNPM_HOME="$RUNNER_TEMP/pnpm"
+          export SHELL=/bin/sh
+          export ENV="$RUNNER_TEMP/pnpm-shrc"
+          touch "$ENV"
+          curl -fsSL https://get.pnpm.io/install.sh -o "$RUNNER_TEMP/install-pnpm.sh"
+          PNPM_VERSION=12.5.1 sh "$RUNNER_TEMP/install-pnpm.sh"
+          echo "$PNPM_HOME/bin" >> "$GITHUB_PATH"
+          "$PNPM_HOME/bin/pnpm" --version
+
+      - name: Generate lockfile and verify runtime
+        working-directory: chagok-frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --lockfile-only
+          test -f pnpm-lock.yaml
+          test "$(node --version)" = "v22.23.2"
+          pnpm install --frozen-lockfile
+
+      - name: Verify frontend
+        working-directory: chagok-frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm test
+          pnpm lint
+          pnpm typecheck
+          pnpm build
+
+      - name: Commit pnpm lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add chagok-frontend/pnpm-lock.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: pnpm lockfile 생성"
+          git push

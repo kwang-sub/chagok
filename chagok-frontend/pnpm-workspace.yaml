@@ -1,0 +1,4 @@
+allowBuilds:
+  unrs-resolver@1.12.2: true
+dangerouslyAllowAllBuilds: false
+strictDepBuilds: true
