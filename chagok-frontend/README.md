@@ -5,23 +5,27 @@ backend와 병렬인 독립 Next.js App Router + React + TypeScript 프로젝트
 
 ## 실행
 
-Node.js 22.13 이상, npm 사용. Next/React 및 도구 버전은 package.json과 package-lock.json에 고정합니다.
+패키지 관리자는 pnpm만 사용합니다. Node.js와 pnpm 요구 버전은 `package.json`의
+`devEngines.runtime`(Node.js 22.23.2)과 `devEngines.packageManager`(pnpm >=12.0.0 <13.0.0)가 기준입니다.
+해당 선언을 지원하는 pnpm standalone을 준비하면 설치 시 필요한 런타임을 내려받습니다.
+의존성 및 도구의 해석 결과는 `pnpm-lock.yaml`에 보존하며, 기존 환경 복원에는 frozen install을 사용합니다.
 
 ```sh
 cd chagok-frontend
-npm ci
+pnpm install --frozen-lockfile
 # API를 연결할 때 .env.example을 참고해 .env.local에 BACKEND_BASE_URL 설정
-npm run dev
+pnpm dev
 ```
 
 http://localhost:3000 에서 확인합니다. API를 호출하지 않는 셸은 backend나 환경 변수 없이 실행/빌드할 수 있습니다.
 
 ```sh
-npm test
-npm run typecheck
-npm run lint
-npm run build
-npm start
+pnpm test
+pnpm lint
+pnpm typecheck
+pnpm build
+# 프로덕션 서버: build 성공 후 실행
+pnpm start
 ```
 
 기본 Turbopack 및 Server Component를 사용합니다. React Compiler, UI/state/query 라이브러리,
