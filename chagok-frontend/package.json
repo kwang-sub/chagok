@@ -5,15 +5,26 @@
   "engines": {
     "node": ">=22.13.0"
   },
-  "packageManager": "npm@11.17.0",
+  "packageManager": "pnpm@12.5.1",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=22.13.0",
+      "onFail": "download"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.5.1",
+      "onFail": "download"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
-    "postinstall": "patch-package --error-on-fail"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node scripts/prepare-test-aliases.mjs && node --test .test-build/tests/*.test.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -29,7 +40,7 @@
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.5",
-    "patch-package": "^8.0.1",
+
     "typescript": "6.0.3"
   }
 }

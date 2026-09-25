@@ -1,7 +1,10 @@
 import { LoginForm } from "@/features/auth/login-form";
 import "@/features/auth/auth.css";
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: {
+  searchParams: Promise<{ oauth?: string | string[] }>;
+}) {
+  const oauthFailed = (await searchParams).oauth === "failed";
   return (
     <main className="auth-page">
       <div className="auth-layout">
@@ -14,10 +17,10 @@ export default function LoginPage() {
         <section className="panel auth-panel" aria-labelledby="login-heading">
           <header>
             <h2 id="login-heading">로그인</h2>
-            <p className="muted">등록된 계정으로 차곡을 시작해 보세요.</p>
+            <p className="muted">Google 계정으로 차곡을 시작해 보세요.</p>
           </header>
-          <LoginForm />
-          <p className="auth-help muted">등록된 이메일과 비밀번호를 사용해 주세요.</p>
+          <LoginForm oauthFailed={oauthFailed} />
+          <p className="auth-help muted">Google 로그인 후 차곡으로 돌아옵니다.</p>
         </section>
       </div>
     </main>

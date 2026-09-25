@@ -1,24 +1,32 @@
 "use client";
 
-import { useActionState } from "react";
-import { signIn } from "./actions";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/browser";
+import { oauthFailureMessage, startGoogleOAuth } from "./oauth";
 
-export function LoginForm() {
-  const [state, action, pending] = useActionState(signIn, { error: null });
+export function LoginForm({ oauthFailed = false }: { oauthFailed?: boolean }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(oauthFailed ? oauthFailureMessage : null);
+
+  async function signIn() {
+    if (pending) return;
+    setError(null);
+    setPending(true);
+    const result = await startGoogleOAuth(() => createClient().auth, window.location.origin);
+    if (result.error) {
+      setError(result.error);
+      setPending(false);
+    }
+  }
+
   return (
-    <form action={action} className="auth-form" aria-busy={pending}>
-      <div className="auth-field">
-        <label htmlFor="email">이메일</label>
-        <input id="email" name="email" type="email" autoComplete="username" required maxLength={254}
-          placeholder="이메일 주소를 입력해 주세요" aria-describedby={state.error ? "login-error" : undefined} />
-      </div>
-      <div className="auth-field">
-        <label htmlFor="password">비밀번호</label>
-        <input id="password" name="password" type="password" autoComplete="current-password" required maxLength={4096}
-          placeholder="비밀번호를 입력해 주세요" aria-describedby={state.error ? "login-error" : undefined} />
-      </div>
-      {state.error && <p id="login-error" className="auth-error" role="alert">{state.error}</p>}
-      <button className="primary" type="submit" disabled={pending}>{pending ? "로그인 중…" : "로그인"}</button>
-    </form>
+    <div className="auth-form" aria-busy={pending}>
+      {error && <p id="login-error" className="auth-error" role="alert">{error}</p>}
+      <button className="primary" type="button" onClick={signIn} disabled={pending}
+        aria-describedby={error ? "login-error" : undefined}>
+        {pending ? "Google로 이동 중…" : "Google로 계속하기"}
+      </button>
+      <p role="status" className="muted">{pending ? "Google 로그인 화면으로 이동합니다." : "Google 계정으로 안전하게 로그인하세요."}</p>
+    </div>
   );
 }
