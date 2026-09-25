@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ApiHttpError } from "../../lib/api/http-client";
+import { ApiHttpError } from "@/lib/api/http-client";
 
 /** getSession alone is untrusted cookie data. Validate the exact forwarded token remotely. */
 export async function getVerifiedSession(auth: Pick<SupabaseClient["auth"], "getSession" | "getUser">) {

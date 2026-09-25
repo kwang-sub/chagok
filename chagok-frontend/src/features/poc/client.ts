@@ -1,10 +1,10 @@
-import { createHttpClient } from "../../lib/api/http-client";
-import type { SearchEtfsQuery } from "../../types/poc";
+import { createHttpClient } from "@/lib/api/http-client";
+import type { SearchEtfsQuery } from "@/types/poc";
 import { decodeEtfs, decodeLatestBaseDate, decodeMarketPrice } from "./decoders";
 
 /** Wire adapter; application code enters through api.server.ts. No implicit retries. */
-export function createPocClient(baseUrl: string, fetcher: typeof fetch = fetch) {
-  const request = createHttpClient(baseUrl, fetcher);
+export function createPocClient(baseUrl: string, fetcher: typeof fetch = fetch, accessToken?: string) {
+  const request = createHttpClient(baseUrl, fetcher, accessToken);
   return {
     async latestBaseDate(signal?: AbortSignal) {
       return decodeLatestBaseDate(await request("/api/poc/etfs/latest-base-date", { signal: signal ?? null }));

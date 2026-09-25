@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "@/features/auth/sign-out-button";
 
 const navigation = [
   { label: "홈", icon: "⌂", href: "/" },
@@ -26,6 +27,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       <Link className="brand" href="/"><span aria-hidden="true">♟</span> 차곡</Link>
       <nav aria-label="주 메뉴">{navigation.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? "page" : undefined} onClick={() => setExpanded(false)}><span aria-hidden="true">{item.icon}</span>{item.label}</Link>)}</nav>
       <div className="sidebar-footer"><div className="household-avatar">차곡 예시 가계</div><p>마지막 업데이트<br/>2025.09.11 09:30 KST</p><span className="badge">UI 미리보기</span></div>
+      <SignOutButton />
     </aside>
     <div className="mobile-header"><button aria-label="전체 메뉴" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>☰</button><Link className="brand" href="/">차곡</Link><span className="badge">예시</span></div>
     <main id="main" className="main-content" tabIndex={-1}>{children}</main>

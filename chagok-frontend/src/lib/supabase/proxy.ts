@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "./config";
+import { isPublicAuthPath } from "@/features/auth/routes";
 
 /** Refresh cookies on both sides of the SSR boundary, including redirect responses. */
 export async function updateSession(request: NextRequest) {
@@ -20,10 +21,9 @@ export async function updateSession(request: NextRequest) {
     },
   });
   const { data, error } = await supabase.auth.getUser();
-  if ((error || !data.user) && request.nextUrl.pathname !== "/login") {
-    const destination = request.nextUrl.clone();
-    destination.pathname = "/login";
-    destination.search = "";
+  if ((error || !data.user) && !isPublicAuthPath(request.nextUrl.pathname)) {
+    const destination = new URL("/login", request.url);
+    destination.host = request.headers.get("host") ?? destination.host;
     const redirect = NextResponse.redirect(destination);
     response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
     response = redirect;

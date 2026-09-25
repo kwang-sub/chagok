@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AuthError, type Session, type User } from "@supabase/supabase-js";
-import { getSupabaseConfig } from "../src/lib/supabase/config";
-import { signInWithForm } from "../src/features/auth/credentials";
-import { getVerifiedSession } from "../src/features/auth/session";
-import { createHttpClient, ApiHttpError } from "../src/lib/api/http-client";
+import { getSupabaseConfig } from "@/lib/supabase/config";
+import { getVerifiedSession } from "@/features/auth/session";
+import { createHttpClient, ApiHttpError } from "@/lib/api/http-client";
 
 const user: User = { id: "validated-user", app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: "2026-01-01T00:00:00Z" };
 const session: Session = { access_token: "test-access-token", refresh_token: "test-refresh-token", token_type: "bearer", expires_in: 300, user };
@@ -15,22 +14,6 @@ test("configuration rejects missing and privileged keys without leaking values",
     assert.throws(() => getSupabaseConfig("https://test.invalid", key), /must be configured/);
   }
   assert.throws(() => getSupabaseConfig("https://user:password@test.invalid", "sb_publishable_test"), /HTTP\(S\) origin/);
-});
-
-test("login validates input without an auth call and passes valid password unchanged", async () => {
-  const form = new FormData();
-  const invalid = await signInWithForm({ signInWithPassword: async () => { throw new Error("must not call"); } }, form);
-  assert.ok(invalid.error);
-  form.set("email", " test@example.invalid ");
-  form.set("password", " test-password ");
-  const result = await signInWithForm({ signInWithPassword: async (credentials) => {
-    assert.deepEqual(credentials, { email: "test@example.invalid", password: " test-password " });
-    return { data: { user, session }, error: null };
-  } }, form);
-  assert.equal(result.error, null);
-  const failed = await signInWithForm({ signInWithPassword: async () => ({ data: { user: null, session: null }, error: new AuthError("private upstream detail") }) }, form);
-  assert.ok(failed.error);
-  assert.ok(!failed.error.includes("private upstream"));
 });
 
 test("session is never authorized from cookie user data alone", async () => {

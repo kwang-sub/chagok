@@ -1,13 +1,17 @@
 # Authentication
 
 Status: APPROVED
-Documentation Source: DESIGN
-API Spec Mode: DESIGN_FIRST
-Approval Source: Kanban t_8c30469e approved specification
+Documentation Source: APPLICATION_SOURCE
+API Spec Mode: SOURCE_SYNC
+Approval Source: Kanban t_1bdba456 Google-only requirement delta
 
 ## Login and session
 
-Next.js owns the Supabase email/password sign-in and sign-out flows. Login and logout are same-origin Next.js Server Actions; logout ends the local Supabase session. Sessions use `@supabase/ssr` cookies. The Next.js proxy refreshes the session on the request/response boundary and marks authenticated HTML, redirects, and `Set-Cookie` responses as non-cacheable.
+Next.js owns Google-only Supabase OAuth login and local sign-out. The login Client Component calls `startGoogleOAuth` with `window.location.origin`; the existing `@supabase/ssr` browser client initiates Google OAuth using PKCE and stores the verifier in cookies. There are no email/password, signup or password-reset controls/actions in the application.
+
+The redirect target is always the same-origin `/auth/callback`. Its GET Route Handler accepts exactly one nonblank code (at most 4096 characters), rejects provider errors, and exchanges the code using a writable per-request SSR client. Session cookies are written through the Next.js cookie store. Successful exchange redirects only to `/`; missing, duplicated, invalid, expired or reused codes and exchange failures redirect only to `/login?oauth=failed`. Arbitrary `next` destinations and provider details are never forwarded or displayed. Callback responses carry `Cache-Control: private, no-store, max-age=0` and `Referrer-Policy: no-referrer`.
+
+Only `/login` and `/auth/callback` are public auth routes; their subpaths are not public. The proxy covers application routes (excluding Next static/image resources and favicon), refreshes session cookies on the request/response boundary and marks responses as non-cacheable, including redirects and `Set-Cookie` responses. Logout remains a same-origin Server Action ending the local Supabase session.
 
 Server Components and Server Actions create the Supabase client from the request cookie store. Before forwarding an access token, the server boundary validates the session user with Supabase `getUser(accessToken)`; `getSession()` cookie data alone is not an identity assertion. Access tokens and Supabase client instances must not be passed to Client Component props.
 
@@ -45,4 +49,12 @@ The Supabase project must use asymmetric signing with a matching issuer/JWKS con
 
 ## Verification boundary
 
-Automated tests use local test fixtures, not production credentials. Real Supabase sign-in, refresh, sign-out and real-project JWT smoke tests remain deferred until local environment values are supplied. Supabase project provisioning is out of scope.
+Automated tests use local test fixtures, not production credentials. Real Google/Supabase sign-in, refresh, sign-out and real-project JWT smoke tests remain NOT_RUN until operator configuration is supplied. Supabase project provisioning is out of scope.
+
+## Manual Google setup and smoke checklist
+
+1. Configure a Google Cloud OAuth web client and consent screen. Register the Supabase provider callback URI shown in the Supabase Dashboard as Google's authorized redirect URI (this is not the application's `/auth/callback`).
+2. Enable the Google provider in Supabase and enter the Google client credentials only in the Dashboard. Never put the client secret, provider tokens or actual configuration values in source, tests, logs or this document.
+3. Register each approved application's exact `/auth/callback` URL in Supabase's redirect allowlist and set its Site URL. Configure only the frontend public Supabase URL/publishable-key variables locally; use HTTPS in production. A deployment reverse proxy must preserve the original Host and HTTPS scheme; the application does not use arbitrary forwarded-host or query destinations for redirects.
+4. In a browser, verify Google consent → same-origin callback → `/`, persisted SSR session after reload, protected-page access and local sign-out → `/login`. Verify cancelled consent and invalid/reused callback codes show only generic retry guidance. Check authenticated and callback responses are not cached.
+5. Only after this real Google OAuth smoke passes may an operator disable the Email provider in Supabase. This task does not disable providers, migrate/delete existing email accounts, add other providers or use Google API tokens.

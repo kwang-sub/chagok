@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseConfig } from "./config";
 
-/** Per-request client. Proxy persists refreshes; only Server Actions may write here. */
+/** Per-request client. Only Server Actions and Route Handlers may write here. */
 export async function createClient(writable = false) {
   const store = await cookies();
   const { url, key } = getSupabaseConfig();
