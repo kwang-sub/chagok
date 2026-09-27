@@ -1,0 +1,363 @@
+// Canonical LOGICAL_RELATIONAL model. See investment-model.md for invariants.
+// Logical identifiers only: bigint does not select an ID generator or physical type.
+// No database vendor, precision/scale, physical enum, FK delete action or default selected.
+// application-owned 테이블의 id는 불변 내부 PK다. 외부 auth_user.id는 Supabase Auth 소유의 UUID이며 앱이 생성하지 않는다. 업무 코드/후보키는 PK를 대체하지 않는다.
+// 공개 API/URL/event 식별자 요구와 외부 시스템 발급 ID 저장 계약이 없어 public_id/external_id를 추가하지 않는다.
+// household_id는 application-owned household.id를 참조한다. 멤버십의 app_user_id와 audit actor는 app_user.id를 참조하되 대상과 수행자로 역할을 구분한다.
+// account_type/instrument_type/status/currency_code/market_code 등은 논리 코드값이다. 전용 마스터 통합은 별도 승인한다.
+// is_active는 신규 업무 사용 가능 여부이지 삭제 표식이 아니다. application-owned 행에는 soft delete 필드를 도입하지 않으며 외부 Auth 탈퇴의 기본 정책은 Supabase Auth soft delete다.
+// 가변 업무 행은 created_at(최초 생성)/updated_at(마지막 변경)을 UTC Instant로 기록한다. 생성 시 두 값은 같고 created_at은 보존한다.
+// 사용자 수행 가변 업무 행 7종의 created_by/updated_by는 인증 요청의 외부 UUID로 조회한 app_user.id를 애플리케이션이 명시한다. 생성 시 같고 이후 created_by는 보존하며 updated_by만 갱신한다. 시스템 생성·갱신 종목에는 actor를 두지 않는다.
+// actor에 DB default, 0/-1 또는 임의 system user를 도입하지 않는다. owner_member_id는 명의·과거 귀속으로 유지하며 actor와 별개다.
+// 원장은 recorded_by/voided_by를 사용한다. 자동/불변 snapshot 3종에는 actor를 추가하지 않으며 system/batch actor는 별도 DESIGN 대상이다.
+// Supabase Auth soft delete로 app_user·멤버십·투자 이력·audit actor를 cascade 삭제하지 않는다. 재가입 UUID/새 app_user 발급·멤버십 자동 복구는 미확정이며 기존 계정 복구를 보장하지 않는다. 실제 FK delete action, 비식별화, RLS, trigger는 후속 결정이다.
+// unique는 논리 후보키 의도다. nullable UNIQUE, 교차 테이블 조건, 물리 index 및 삭제 cascade는 확정하지 않는다.
+
+// identity 영역은 외부 인증 원본과 application-owned 내부 사용자 매핑의 책임을 분리한다.
+Table auth_user {
+  id uuid [pk, not null, note: '인증 사용자 ID; Supabase auth.users.id의 외부 관리 논리 UUID']
+  Note: '''
+  인증 사용자
+
+  Supabase Auth가 소유하는 외부 인증 원본 auth.users의 논리 참조이며 application-owned 테이블이 아니다. canonical 식별자 id만 표현하고 이메일·전화·provider·auth.identities·metadata·세션·토큰·자격증명은 복제하지 않는다. 실제 Auth DDL을 생성·수정하지 않는다. 인증 사용자 하나는 내부 사용자 매핑을 0..1개 가진다. 탈퇴의 기본 정책은 Supabase Auth soft delete이며 app_user·멤버십·투자 이력·audit actor를 cascade 삭제하지 않는다. 재가입 시 Auth UUID/새 app_user 발급과 기존 멤버십 자동 복구는 미확정이며 soft delete는 기존 계정 복구를 보장하지 않는다. 실제 호출·로그인 차단·FK delete action·비식별화·RLS·trigger는 후속 결정이다.
+  '''
+}
+
+Table app_user {
+  id bigint [pk, not null, note: '내부 사용자 ID; 애플리케이션 소유의 불변 내부 식별자']
+  auth_user_id uuid [not null, unique, note: '외부 인증 사용자 ID; Supabase auth.users.id를 표현하는 auth_user.id 논리 참조']
+  created_at timestamp [not null, note: '내부 사용자 최초 생성 시각; 사용자 매핑 최초 provisioning 시각이며 Auth 생성 시각의 복제·동기화 필드가 아님']
+  display_name varchar [not null, note: '사용자 표시명; 모든 가계 공통의 application-owned 현재 표시명이며 Auth metadata 복제·동기화 필드가 아님']
+  Note: '''
+  애플리케이션 사용자
+
+  외부 인증 식별자를 불변 내부 사용자 PK에 매핑하고 모든 가계 공통의 현재 사용자 표시명을 소유하는 application-owned 기준 행이다. 각 행은 정확히 한 auth_user를 참조하며 auth_user_id는 논리 UNIQUE다. 내부 사용자 하나는 서로 다른 가계의 멤버십과 각 역할별 audit actor 참조를 0..N개 가진다. 최초 인증/온보딩에서 auth.users.id로 생성·조회하는 provisioning이 필요하며 created_at은 최초 매핑 생성 시각으로 이후에도 보존한다. created_at과 display_name은 Auth metadata 복제·동기화 필드가 아니다. 가계별 별칭이나 과거 표시명 snapshot은 추가하지 않는다. 생성 시 내부 actor가 아직 없으므로 created_by/updated_by를 강제하지 않으며 임의 system user를 만들지 않는다. Auth 속성은 복제하지 않는다. Auth 탈퇴 기본 정책인 soft delete로 이 행·멤버십·투자 이력·actor 이력을 cascade 삭제하지 않는다. 재가입의 UUID/새 app_user 발급과 멤버십 자동 복구는 미확정이다. 실제 FK delete action·비식별화·provisioning 중복 처리·backfill·RLS·trigger는 후속 결정이다.
+  '''
+}
+
+// 기준 엔티티: application-owned 가계 경계. 비활성화해도 소속 및 투자 이력을 보존한다.
+Table household {
+  id bigint [pk, not null, note: '가계 ID; 불변 내부 식별자']
+  display_name varchar [not null, note: '가계 표시명; 식별키가 아닌 업무 표시명']
+  is_active boolean [not null, note: '업무 활성 여부; 삭제 표식이 아님']
+  created_at timestamp [not null, note: '최초 생성 시각; 생성 이후 보존']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 표시명·업무 활성 변경']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  Note: '''
+  가계
+
+  애플리케이션이 소유하는 가계 경계와 현재 표시명·업무 활성 상태를 관리한다. 가계 하나에 멤버십 0..N이 속하며 활성 가계에는 활성 OWNER 멤버십이 최소 한 개 필요하다. 비활성화는 멤버십·계좌·투자 이력을 삭제하지 않는다. 생성 시 created_at과 updated_at은 같고 이후 생성 시각은 보존한다. 인증 원본을 복제하거나 인증 사용자 테이블을 대체하지 않는다.
+  '''
+}
+
+// 기준 엔티티: 가계 소속 및 명의의 독립 생명주기. public/external 식별자 판단은 investment-model.md 참조.
+Table household_member {
+  id bigint [pk, not null, note: '가계 멤버십 ID; 투자 명의 귀속의 불변 내부 식별자']
+  household_id bigint [not null, note: '가계 ID; 소속 가계의 불변 내부 식별자 참조']
+  app_user_id bigint [not null, note: '멤버십 내부 사용자 ID; app_user.id 참조이며 변경 수행자인 audit actor와 별도 역할']
+  role varchar [not null, note: '멤버십 역할; OWNER | EDITOR | VIEWER의 현재 권한 구분이며 역할 변경 이력이 아님']
+  is_active boolean [not null, note: '업무 활성 여부; 삭제 표식이 아님']
+  created_at timestamp [not null, note: '최초 생성 시각; 구성원 행 생성 시각이며 가입/탈퇴 업무일이나 인증 사용자 생성 시각이 아님']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 역할·업무 활성 등 허용된 현재 멤버십 정보 변경']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  indexes {
+    (household_id, app_user_id) [unique]
+  }
+  Note: '''
+  가계 멤버십
+
+  인증 사용자 프로필이 아닌 가계 소속·현재 role·투자 명의 귀속 행이며 정확히 한 가계와 한 app_user에 속한다. 표시명은 app_user의 모든 가계 공통 현재 값을 사용하며 가계별 별칭/과거 표시명 snapshot은 두지 않는다. 내부 사용자 1명은 서로 다른 가계에 여러 행을 가질 수 있으나 동일 가계의 중복 멤버십은 비활성 행을 포함해 금지한다. role은 현재 권한만 표현하며 활성 가계에는 활성 OWNER가 최소 한 명 필요하다. 가계·멤버십 비활성화와 Auth 탈퇴 기본 정책인 soft delete는 app_user·멤버십·계좌·투자 이력을 cascade 삭제하지 않는다. auth.users는 외부 관리 인증 원본이다. auth.identities, 이메일·전화·provider metadata·app_metadata·user_metadata·세션·토큰·자격증명은 이 행에 복사하거나 업무 키/인가 근거로 사용하지 않는다. 재가입 시 멤버십 자동 복구, 실제 FK delete action, RLS/서버 인가, trigger, 비식별화와 탈퇴 실행 절차, 동시 역할 변경의 불변식 강제는 후속 결정이며 논리 참조/UNIQUE만으로 구현되지 않는다.
+  '''
+}
+
+// 기준 엔티티: 명의자가 소유하는 계좌. 비활성화 이후에도 이력의 귀속 기준을 유지한다.
+Table investment_account {
+  id bigint [pk, not null, note: '투자계좌 ID']
+  owner_member_id bigint [not null, note: '명의자 멤버십 ID; 과거 투자 귀속 기준']
+  institution_name varchar [not null, note: '금융기관명']
+  account_name varchar [not null, note: '계좌명']
+  account_type varchar [not null, note: '계좌 유형; 논리 선택 코드이며 제품의 공통 계좌유형 마스터와의 연결은 별도 승인 후 결정']
+  currency_code varchar [not null, note: '통화 코드; 초기 지원 통화는 KRW이며 외환 환산은 모델링하지 않음']
+  is_active boolean [not null, note: '업무 활성 여부']
+  created_at timestamp [not null, note: '최초 생성 시각; 계좌 행 생성 시각이며 금융기관 계좌 개설일이 아님']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 계좌 기준정보·업무 활성 변경이며 명의 이전 허용을 뜻하지 않음']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  Note: '''
+  투자계좌
+
+  명의자가 소유하는 증권계좌의 현재 기준정보를 관리한다. 비활성화 후에도 과거 투자 귀속을 위해 명의자를 유지하며 명의 이전에는 별도로 승인된 정책이 필요하다.
+  '''
+}
+
+// 기준 엔티티: 시세 공급자와 독립된 상장 종목. market_code/ticker는 업무 후보키이며 내부 id와 구분한다.
+Table security_instrument {
+  id bigint [pk, not null, note: '종목 ID']
+  market_code varchar [not null, note: '시장 코드; 종목 상장 식별 범위']
+  ticker varchar [not null, note: '종목 코드; 시장 내 상장 종목 식별값']
+  instrument_name varchar [not null, note: '종목명']
+  instrument_type varchar [not null, note: '종목 유형; 초기 ETF이며 종목 식별은 가격 공급자와 독립']
+  currency_code varchar [not null, note: '통화 코드']
+  is_active boolean [not null, note: '업무 활성 여부']
+  created_at timestamp [not null, note: '최초 생성 시각; 종목 기준 행 생성 시각이며 상장일이나 가격 관측 시각이 아님']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 허용된 종목 기준정보·업무 활성 변경이며 시세 갱신과 구분']
+  indexes {
+    (market_code, ticker) [unique]
+  }
+  Note: '''
+  상장 종목
+
+  시스템이 생성·갱신하는 계좌 및 가격 공급자와 독립된 상장 종목 기준정보다. created_at/updated_at은 유지하되 사용자 수행 actor인 created_by/updated_by와 app_user actor 참조를 두지 않으며 system actor 테이블도 추가하지 않는다. 시장 코드는 PoC 공급자가 아닌 상장 식별 범위를 나타낸다. 비활성화해도 과거 참조를 유지하며 식별값 변경에는 후속 정정 정책이 필요하다.
+  '''
+}
+
+// 현재 상태: 계좌 소유의 계좌-종목 association. 최초 생성 시각과 현재 값 보정 시각을 구분한다.
+Table investment_holding {
+  id bigint [pk, not null, note: '보유종목 ID']
+  account_id bigint [not null, note: '투자계좌 ID']
+  security_id bigint [not null, note: '종목 ID']
+  quantity decimal [not null, note: '현재 보유수량; 음수가 아니며 개별 체결 단위가 아님']
+  average_purchase_price decimal [not null, note: '평균매입가; 음수가 아닌 수정 가능한 현재 원가 기준']
+  target_allocation decimal [not null, note: '목표비중; 0..1 비율이며 목표비중 합계 정책은 미확정']
+  is_active boolean [not null, note: '업무 활성 여부']
+  created_at timestamp [not null, note: '최초 생성 시각; 현재 보유 행 생성 시각이며 매수일이 아니고 재활성화 시에도 보존']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 수량·원가·비중의 수동 보정 포함']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  indexes {
+    (account_id, security_id) [unique]
+  }
+  Note: '''
+  현재 보유종목
+
+  계좌별 종목의 현재 수량·원가·목표비중을 관리한다. 비활성 행을 포함해 계좌와 종목 조합당 하나의 현재 보유 행만 허용하며 재활성화는 같은 행을 변경한다. 이 행으로 과거 보유 이력을 재구성하지 않는다.
+  '''
+}
+
+// 현재 상태: 계좌 소유의 반복 조건. 업무 종료와 생성된 회차의 보존은 별개다.
+Table investment_funding_plan {
+  id bigint [pk, not null, note: '투자 자금 계획 ID']
+  account_id bigint [not null, note: '투자계좌 ID']
+  planned_amount decimal [not null, note: '계획 금액; 계좌 통화의 양수 금액']
+  recurrence_rule varchar [not null, note: '반복 투자일 규칙; 논리 반복 조건이며 인코딩과 휴일 규칙은 후속 결정']
+  starts_on date [not null, note: '계획 시작일; 초기 화면의 시작월 경계']
+  ends_on date [note: '계획 종료일; null은 예정 종료 없음이며 값이 있으면 시작일보다 빠를 수 없음']
+  memo text [note: '메모']
+  is_active boolean [not null, note: '업무 활성 여부']
+  created_at timestamp [not null, note: '최초 생성 시각; 반복 계획 행 생성 시각이며 starts_on과 구분']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 반복 조건·금액·메모·업무 활성 변경이며 생성된 회차에는 소급하지 않음']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  Note: '''
+  투자 자금 계획
+
+  계좌가 소유하는 정기 투자 반복 조건을 관리하며 명의자는 계좌에서 도출한다. 추가·일시 투자가 아닌 정기 계획만 표현한다. 조건 변경이나 종료는 이미 생성된 투자금 회차를 다시 쓰지 않는다.
+  '''
+}
+
+// 업무 이력 + 가변 현재 처리 상태: 계좌/명의 귀속. 전체 상태 전이 ledger는 아니다.
+Table investment_funding {
+  id bigint [pk, not null, note: '투자금 투입 ID']
+  account_id bigint [not null, note: '투자계좌 ID']
+  owner_member_id bigint [not null, note: '명의자 멤버십 ID; 계좌 명의자와 일치하고 과거 귀속을 보존']
+  plan_id bigint [note: '투자 자금 계획 ID; 선택 참조이며 같은 계좌의 REGULAR에만 허용']
+  plan_occurrence_key varchar [note: '계획 회차 키; plan_id와 함께 필수이며 보류되어도 원래 회차 키 유지']
+  funding_type varchar [not null, note: '투입 유형; REGULAR | ADDITIONAL | ONE_TIME의 확장 가능한 논리 코드']
+  amount decimal [not null, note: '투입 예산 금액; 양수 실행 단위 예산이며 외부 자금 이동의 증빙이 아님']
+  scheduled_on date [not null, note: '투자 예정일']
+  processed_on date [note: '처리일; 실제 완료·건너뜀 처리일이며 XIRR 현금흐름일이 아님']
+  status varchar [not null, note: '처리 상태; SCHEDULED | AVAILABLE | DEFERRED | IN_PROGRESS | COMPLETED | SKIPPED | INACTIVE']
+  memo text [note: '메모']
+  created_at timestamp [not null, note: '최초 생성 시각']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 현재 처리 상태·내용 변경']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  indexes {
+    (plan_id, plan_occurrence_key) [unique, note: '투자 자금 계획 ID·계획 회차 키; 계획에 연결된 회차의 논리 유일성이며 nullable 조합의 물리 강제 방식은 후속 결정']
+  }
+  Note: '''
+  투자금 투입
+
+  계좌·명의에 귀속되는 실행 단위 예산과 예정·처리일, 현재 처리 상태를 가진 업무 이력이다. 실제 현금흐름 원장과 분리되며 비활성화로 실제 자금 이동을 조용히 제거하지 않는다. 전체 상태 전이 원장은 아니다.
+  '''
+}
+
+// 불변 snapshot: 투입 건 소유의 종목별 제안. 재계산은 새 set이며 update audit를 추가하지 않는다.
+Table investment_suggestion_snapshot {
+  id bigint [pk, not null, note: '투자 제안 스냅샷 ID']
+  funding_id bigint [not null, note: '투자금 투입 ID']
+  proposal_set_key varchar [not null, note: '제안 묶음 키; 한 시뮬레이션의 불변 행 전체를 묶으며 외부 FK가 아님']
+  security_id bigint [not null, note: '종목 ID']
+  security_name_snapshot varchar [not null, note: '계산 당시 종목명']
+  action varchar [not null, note: '제안 행위; 초기 BUY이며 SELL은 별도 승인된 매도 모드용 확장점']
+  funding_amount_snapshot decimal [not null, note: '계산 당시 투입 예산 금액']
+  holding_quantity_snapshot decimal [not null, note: '계산 당시 보유수량']
+  current_allocation decimal [not null, note: '계산 당시 현재비중']
+  target_allocation decimal [not null, note: '계산 당시 목표비중']
+  suggested_amount decimal [not null, note: '제안 금액']
+  expected_quantity decimal [not null, note: '예상 수량']
+  expected_allocation decimal [not null, note: '예상 비중']
+  calculation_price decimal [not null, note: '계산 적용 가격; 실제 사용한 양수 가격이며 최신 가격으로 대체하지 않음']
+  price_as_of_at timestamp [not null, note: '적용 가격 기준시각']
+  price_fetched_at timestamp [not null, note: '적용 가격 조회시각']
+  calculated_at timestamp [not null, note: '제안 계산 시각']
+  indexes {
+    (funding_id, proposal_set_key, security_id) [unique]
+  }
+  Note: '''
+  투자 제안 스냅샷
+
+  한 투자금 투입의 시뮬레이션에서 사용한 가격·보유정보와 종목별 제안을 불변으로 보존한다. 제안 묶음의 종목당 한 행이며 재계산은 새 묶음을 추가하고 과거 행을 덮어쓰지 않는다. 비중은 0..1 비율이다.
+  '''
+}
+
+// 현재 처리 상태: 제안 소유의 선택 결과. 생성/마지막 변경을 기록하되 체결 ledger로 해석하지 않는다.
+Table investment_execution_result {
+  id bigint [pk, not null, note: '투자 실행 결과 ID']
+  suggestion_id bigint [not null, unique, note: '투자 제안 ID']
+  status varchar [not null, note: '처리 상태; PENDING | BUY_COMPLETED | SELL_COMPLETED | SKIPPED']
+  applied_amount decimal [note: '실제 적용 금액; 선택 입력하는 음수 아닌 금액이며 null은 미입력이지 0이 아님']
+  applied_quantity decimal [note: '실제 적용 수량; 선택 입력하는 음수 아닌 수량이며 null은 미입력이지 0이 아님']
+  processed_on date [note: '처리일; 최종 처리 결과에는 필수이며 체결 timestamp를 필수화하지 않음']
+  memo text [note: '메모']
+  created_at timestamp [not null, note: '최초 생성 시각; 결과 행 생성 시각이며 제안 계산 시각이나 체결 시각이 아님']
+  updated_at timestamp [not null, note: '마지막 변경 시각; 결과 입력·보정 시각']
+  created_by bigint [not null, note: '최초 생성자 ID; 인증 요청의 내부 사용자이며 생성 이후 보존']
+  updated_by bigint [not null, note: '마지막 변경자 ID; 생성 시 created_by와 같고 허용 변경 시 갱신']
+  Note: '''
+  투자 실행 결과
+
+  제안별로 없거나 하나인 현재 처리 결과를 관리하며 개별 체결 원장이 아니다. 한 투자금 투입에서 완료 거래를 기록하는 제안 묶음은 하나로 제한한다. 결과 생성·변경 시각과 업무 처리일을 구분하며 상세 계약은 동반 문서를 따른다.
+  '''
+}
+
+// 사건 원장: 실제 자금 이동의 단일 기준. recorded_at은 기록 시각이며 임의 갱신/삭제를 허용하지 않는다.
+Table investment_cash_flow {
+  id bigint [pk, not null, note: '투자 현금흐름 ID']
+  flow_type varchar [not null, note: '현금흐름 유형; EXTERNAL_INFLOW | EXTERNAL_OUTFLOW | INTERNAL_TRANSFER']
+  from_account_id bigint [note: '출발 계좌 ID; 외부 유출·내부이체에는 필수이며 외부 유입에는 null']
+  to_account_id bigint [note: '도착 계좌 ID; 외부 유입·내부이체에는 필수이며 외부 유출에는 null']
+  funding_id bigint [note: '투자금 투입 ID; 선택 출처 참조일 뿐 금액을 중복 합산하지 않음']
+  occurred_on date [not null, note: '실제 자금 이동일; XIRR 현금흐름 날짜']
+  amount decimal [not null, note: '이동 금액; 반드시 양수이며 방향은 유형과 출발·도착 계좌로만 표현']
+  currency_code varchar [not null, note: '통화 코드']
+  source_event_key varchar [not null, unique, note: '원천 사건 키; VOIDED를 포함하여 모든 입력 경로와 재시도가 공유하는 기록 식별값이며 정정본은 자체 키 사용, 키 형식은 후속 결정']
+  status varchar [not null, note: '사건 상태; ACTIVE | VOIDED이며 ACTIVE만 집계·원금·XIRR에 반영']
+  voided_at timestamp [note: '무효화 시각; VOIDED에는 필수이고 ACTIVE에는 null이며 자금 이동일이 아님']
+  voided_by bigint [note: '무효화 수행자 ID; app_user.id 참조이며 ACTIVE에는 null, VOIDED에는 필수']
+  void_reason text [note: '무효화 사유; 필수 여부와 어휘는 미승인']
+  correction_of_cash_flow_id bigint [note: '정정 원본 현금흐름 ID; 보존된 VOIDED 원본 하나의 선택 참조이며 후보키가 아님, 대체 행은 방향·출발·도착 계좌·통화를 명시']
+  memo text [note: '메모']
+  recorded_at timestamp [not null, note: '사건 기록 시각']
+  recorded_by bigint [not null, note: '사건 기록자 ID; 인증 요청의 내부 사용자이며 무효화 후에도 보존']
+  Note: '''
+  투자 현금흐름
+
+  실제 자금 이동의 사건 기록 버전당 한 행을 보존하며 양쪽 계좌가 있는 내부이체도 한 행이다. ACTIVE에서 VOIDED로 전환해 원본 사실과 recorded_by를 보존하고 인증 요청의 무효화 수행자를 voided_by에 명시한다. 물리 삭제·금액 덮어쓰기·반대 외부거래 자동 생성을 하지 않는다. 대체 기록은 자체 recorded_by를 가진 새 ACTIVE 사건이며 원본을 참조하고 VOIDED 이력도 조회 가능하게 유지한다. created_by/updated_by를 일괄 추가하지 않는다. 정정 무결성과 후속 물리 강제는 동반 문서를 따른다.
+  '''
+}
+
+// snapshot: 계좌 소유의 시점 평가. 확정 후 불변이며 captured_at은 업무 기준시각과 구분한다.
+Table investment_valuation_snapshot {
+  id bigint [pk, not null, note: '투자 평가 스냅샷 ID']
+  account_id bigint [not null, note: '투자계좌 ID']
+  as_of_at timestamp [not null, note: '평가 기준시각; 경제적 평가 cutoff이며 포착 시각이 아님']
+  captured_at timestamp [not null, note: '평가 포착 시각']
+  securities_value decimal [not null, note: '보유종목 평가액']
+  cash_balance decimal [not null, note: '예수금 잔액; 평가에서 제외해도 알려진 잔액을 기록하며 미확인 잔액을 0으로 저장하지 않음']
+  cash_inclusion_policy varchar [not null, note: '예수금 포함 정책; INCLUDED | EXCLUDED이며 과거 값과 함께 정책 보존']
+  total_value decimal [not null, note: '총 평가액; INCLUDED는 securities_value + cash_balance, EXCLUDED는 securities_value']
+  currency_code varchar [not null, note: '통화 코드']
+  status varchar [not null, note: '평가 상태; PROVISIONAL | CONFIRMED이며 PROVISIONAL → CONFIRMED만 허용하고 역전이 금지']
+  indexes {
+    (account_id, as_of_at) [unique]
+  }
+  Note: '''
+  투자 평가 스냅샷
+
+  계좌의 기준시점 평가액과 예수금 포함 정책을 이력으로 보존하며 명의자는 안정적인 계좌 소유관계에서 도출한다. PROVISIONAL은 수정 가능하며 상태 전이는 PROVISIONAL → CONFIRMED만 허용한다. CONFIRMED는 값·정책·상태가 불변이고 PROVISIONAL로의 역전이는 금지한다. 확정값 정정 모델, confirmed_by/confirmed_at 및 실제 불변식 강제 방식은 후속 결정이다.
+  '''
+}
+
+// 관측 snapshot: 단일 공급자의 종목·기준시각별 최신 성공 관측값. 재수집 전 값의 전체 이력이 아니다.
+Table market_price_snapshot {
+  id bigint [pk, not null, note: '시장 가격 스냅샷 ID']
+  security_id bigint [not null, note: '종목 ID']
+  price decimal [not null, note: '관측 가격; 성공적으로 관측된 양수 가격만 기록']
+  currency_code varchar [not null, note: '통화 코드']
+  price_as_of_at timestamp [not null, note: '가격 기준시각; 시장 가격의 유효 시각이며 fetched_at보다 앞설 수 있음']
+  fetched_at timestamp [not null, note: '가격 조회시각']
+  indexes {
+    (security_id, price_as_of_at) [unique]
+  }
+  Note: '''
+  시장 가격 스냅샷
+
+  시스템이 단일 공급자로부터 수집하는 계좌와 독립된 종목 가격이다. (security_id, price_as_of_at)은 논리 UNIQUE이며 같은 조합의 성공 재수집은 신규 행 대신 기존 price와 fetched_at을 갱신한다. 종목·기준시각별 최신 성공 관측값을 보존하며 모든 재수집 전 값 이력은 보존하지 않는다. 조회 실패는 마지막 성공 가격을 대체하지 않으며 제안에 복사한 가격이나 확정 평가를 소급 변경하지 않는다. 공급자 선정·보존기간·실제 upsert 및 동시성 강제는 후속 결정한다.
+  '''
+}
+
+Ref: app_user.auth_user_id - auth_user.id
+Ref: household_member.app_user_id > app_user.id
+Ref: household.created_by > app_user.id
+Ref: household.updated_by > app_user.id
+Ref: household_member.created_by > app_user.id
+Ref: household_member.updated_by > app_user.id
+Ref: investment_account.created_by > app_user.id
+Ref: investment_account.updated_by > app_user.id
+Ref: investment_holding.created_by > app_user.id
+Ref: investment_holding.updated_by > app_user.id
+Ref: investment_funding_plan.created_by > app_user.id
+Ref: investment_funding_plan.updated_by > app_user.id
+Ref: investment_funding.created_by > app_user.id
+Ref: investment_funding.updated_by > app_user.id
+Ref: investment_execution_result.created_by > app_user.id
+Ref: investment_execution_result.updated_by > app_user.id
+Ref: investment_cash_flow.recorded_by > app_user.id
+Ref: investment_cash_flow.voided_by > app_user.id
+Ref: household_member.household_id > household.id
+Ref: investment_account.owner_member_id > household_member.id
+Ref: investment_holding.account_id > investment_account.id
+Ref: investment_holding.security_id > security_instrument.id
+Ref: investment_funding_plan.account_id > investment_account.id
+Ref: investment_funding.account_id > investment_account.id
+Ref: investment_funding.owner_member_id > household_member.id
+Ref: investment_funding.plan_id > investment_funding_plan.id
+Ref: investment_suggestion_snapshot.funding_id > investment_funding.id
+Ref: investment_suggestion_snapshot.security_id > security_instrument.id
+Ref: investment_execution_result.suggestion_id - investment_suggestion_snapshot.id
+Ref: investment_cash_flow.from_account_id > investment_account.id
+Ref: investment_cash_flow.to_account_id > investment_account.id
+Ref: investment_cash_flow.funding_id > investment_funding.id
+Ref: investment_cash_flow.correction_of_cash_flow_id > investment_cash_flow.id
+Ref: investment_valuation_snapshot.account_id > investment_account.id
+Ref: market_price_snapshot.security_id > security_instrument.id
+
+// 승인된 canonical Subject Area. 각 논리 테이블은 정확히 한 영역에 속한다.
+TableGroup identity {
+  auth_user
+  app_user
+}
+
+TableGroup household {
+  household
+  household_member
+}
+
+TableGroup investment {
+  investment_account
+  investment_holding
+  investment_funding_plan
+  investment_funding
+  investment_suggestion_snapshot
+  investment_execution_result
+  investment_cash_flow
+  investment_valuation_snapshot
+}
+
+TableGroup market {
+  security_instrument
+  market_price_snapshot
+}
