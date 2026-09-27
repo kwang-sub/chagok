@@ -3,10 +3,10 @@ import { Dashboard } from "@/features/dashboard/dashboard";
 import { requireSession } from "@/features/auth/session.server";
 
 export default async function Home() {
-  await requireSession();
+  const { profile } = await requireSession();
   return (
     <AppShell>
-      <Dashboard />
+      <Dashboard displayName={profile.displayName} />
     </AppShell>
   );
 }

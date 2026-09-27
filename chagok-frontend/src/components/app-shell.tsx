@@ -14,7 +14,7 @@ const navigation = [
   { label: "부채", icon: "▱", href: "/preview/debt" },
   { label: "보고서", icon: "▧", href: "/preview/reports" },
   { label: "계좌·카드", icon: "▥", href: "/preview/cards" },
-  { label: "설정", icon: "⚙", href: "/preview/settings" },
+  { label: "설정", icon: "⚙", href: "/settings" },
 ];
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {

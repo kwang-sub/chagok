@@ -36,6 +36,12 @@ strong, b, td { font-variant-numeric: tabular-nums; }
 .sign-out-form { display: grid; gap: 8px; margin-top: 16px; }
 .sign-out-form button { width: 100%; }
 .sign-out-form [role="alert"] { color: #a52f3e; font-size: 12px; overflow-wrap: anywhere; }
+.profile-form { display: grid; gap: 16px; max-width: 560px; }
+.profile-field { display: grid; gap: 6px; min-width: 0; }
+.profile-form input { width: 100%; }
+.profile-form input[readonly] { background: var(--background); color: var(--muted); }
+.profile-form [role="alert"] { color: #a52f3e; }
+.profile-greeting { overflow-wrap: anywhere; }
 .household-avatar { padding: 12px 8px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; color: var(--text); font-weight: 700; }
 .main-content { margin-left: 200px; padding: 24px; max-width: 1760px; min-width: 0; }
 .mobile-header, .bottom-nav { display: none; }

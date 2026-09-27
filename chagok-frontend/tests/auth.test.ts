@@ -32,7 +32,7 @@ test("session is never authorized from cookie user data alone", async () => {
       return { data: { user }, error: null };
     },
   });
-  assert.deepEqual(verified, { accessToken: session.access_token, userId: user.id });
+  assert.deepEqual(verified, { accessToken: session.access_token, userId: user.id, profile: { displayName: "사용자", email: "" } });
 });
 
 test("backend transport forwards bearer only to configured origin with no caching or redirects", async () => {
