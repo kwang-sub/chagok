@@ -131,6 +131,143 @@ portfolio_daily_snapshot
 
 실제 보유 ETF 성과와 장기 전략 proxy 결과를 동일한 사실로 표시하지 않는다.
 
+### 4.4 해외 ETF 및 벤치마크 공급자 PoC
+
+2026-10-01 기준 Twelve Data 무료 API를 이용해 해외 ETF 데이터 접근 가능성을 PoC로 확인했다.
+
+확인 결과:
+- `/etfs/list` 호출 성공
+- `SPY` 현재가 조회 성공
+- `SPY` 일봉 시계열 조회 성공
+- 일봉 응답에서 `datetime/open/high/low/close/volume` 확인
+- 메타데이터에서 `symbol=SPY`, `currency=USD`, `exchange=NYSE`, `mic_code=ARCX`, `type=ETF` 확인
+
+PoC 결과만으로 공급자를 최종 확정하지는 않지만, 해외 ETF Benchmark용 가격 이력을 확보할 수 있는 실현 가능성은 확인된 것으로 본다.
+
+초기 구현 후보:
+
+```text
+국내 ETF
+  -> 금융위원회 / KRX 계열 데이터
+
+해외 ETF Benchmark
+  -> Twelve Data
+```
+
+Twelve Data API Key는 사용자별로 입력받지 않고 서버 환경설정/Secret으로 관리하는 방향을 기본으로 한다.
+
+사용자에게 외부 데이터 공급자 계정이나 API Key 관리 책임을 넘기지 않는다.
+
+### 4.5 벤치마크 운영 정책
+
+벤치마크는 사용자가 임의의 해외 ETF를 자유 검색하여 무제한 등록하는 구조로 시작하지 않는다.
+
+그 이유는 다음과 같다.
+
+- 사용자마다 서로 다른 종목을 선택하면 공용 가격 이력 대상이 계속 증가한다.
+- 데이터 공급자 호출량과 backfill 대상이 사용자 행동에 따라 무제한 증가할 수 있다.
+- 분석 기준이 지나치게 다양해져 비교 결과 설명과 검증이 어려워진다.
+- 별도 관리자 화면을 만들기에는 현재 제품 규모 대비 관리 비용이 크다.
+
+기본 방향은 **애플리케이션이 지원하는 소수의 Benchmark 목록을 코드/DB Seed로 관리하고, 사용자는 그 목록 안에서 선택**하는 방식이다.
+
+초기 예시:
+
+| 코드 | 사용자 표시 | 실제 데이터 자산 | 비고 |
+|---|---|---|---|
+| SPY | S&P 500 | SPDR S&P 500 ETF Trust | 1차 기본 Benchmark 후보 |
+| QQQ | Nasdaq-100 | Invesco QQQ ETF | 향후 추가 후보 |
+| VT | 전세계 주식 | Vanguard Total World Stock ETF | 향후 추가 후보 |
+
+1차 구현은 SPY 하나만 제공해도 된다.
+
+화면에서는 지수 자체와 ETF Proxy를 혼동하지 않도록 다음과 같이 표현한다.
+
+```text
+S&P 500 비교
+SPY · S&P 500 추종 ETF
+```
+
+즉 SPY를 사용하는 경우 이를 공식 S&P 500 지수 자체로 표시하지 않는다.
+
+### 4.6 벤치마크 데이터 저장 방향
+
+벤치마크 가격은 사용자별로 저장하지 않고 전체 사용자가 공유하는 공용 데이터로 관리한다.
+
+예:
+
+```text
+benchmark
+- id
+- code
+- name
+- symbol
+- currency
+- provider
+- is_active
+- sort_order
+
+benchmark_price_history
+- benchmark_id
+- trade_date
+- close_price
+- adjusted_price
+- source
+- fetched_at
+```
+
+위 구조는 개념 예시이며 현재 canonical DBML에는 추가하지 않는다.
+
+사용자의 Portfolio에는 실제 가격 이력이 아니라 선택한 Benchmark 식별자만 저장한다.
+
+예:
+
+```text
+portfolio_benchmark
+- portfolio_id
+- benchmark_id
+```
+
+또는 Portfolio가 단일 Benchmark만 지원하는 동안은 `benchmark_id`를 Portfolio에 직접 두는 단순 구조도 후속 DESIGN에서 비교한다.
+
+공용 Benchmark 수가 3개이고 10년 일봉을 보존해도 데이터량은 약 수천~1만 행 수준이므로, 초기 차곡 규모에서는 저장 용량보다 **지원 Benchmark 범위를 통제하는 것**을 더 중요한 정책으로 본다.
+
+### 4.7 벤치마크 비교 계산 원칙
+
+Portfolio와 Benchmark는 동일한 분석 기간을 사용한다.
+
+초기 비교 후보:
+- 누적 수익률
+- 연평균 수익률
+- 최대 낙폭
+- 변동성
+- 위험 대비 수익
+- 누적성과 비교 Chart
+
+가격 규모 자체를 비교하지 않고 시작값을 동일 기준으로 정규화한 누적성과 지수를 사용한다.
+
+예:
+
+```text
+분석 시작일
+내 포트폴리오 = 100
+SPY          = 100
+```
+
+이후 동일 기간의 상대 성장 경로를 비교한다.
+
+초기 SPY Benchmark는 구현 복잡도를 낮추기 위해 다음 기준으로 시작할 수 있다.
+
+- USD 기준
+- 환율 미반영
+- 확보 가능한 가격 데이터 기준
+- 배당/Total Return 반영 여부를 화면과 계산 Contract에 명시
+
+환율 및 Total Return을 완전히 맞춘 정밀 비교는 별도 후속 범위로 둔다.
+
+따라서 초기 Benchmark는 `정밀 초과성과 평가`보다 **시장 대표 ETF와 내 포트폴리오의 장기 성과/위험 특성을 비교하는 참고 지표**로 정의한다.
+
+
 ## 5. 가격 데이터와 Total Return
 
 단순 종가만으로 장기 투자성과를 계산하면 ETF 분배금 때문에 실제 투자성과와 차이가 발생할 수 있다.
@@ -178,6 +315,8 @@ portfolio_daily_snapshot
 - 연평균 성장률(CAGR)
 - 최대 하락폭(MDD)
 - 벤치마크 비교
+  - 1차 후보: SPY(S&P 500 추종 ETF)
+  - 지원 Benchmark는 제한된 공용 목록으로 운영
 - 목표비중 대비 현재비중 및 리밸런싱 효과
 
 ### 7.2 후속 고급 분석
@@ -222,6 +361,11 @@ portfolio_daily_snapshot
 
 - [ ] 분석 기능의 제품 범위와 사용자 표현 확정
 - [ ] 필요한 지표별 정확한 계산 정의 확정
+- [x] Twelve Data 해외 ETF 기본 호출 PoC 완료 (ETF 목록 / SPY 현재가 / SPY 일봉)
+- [ ] Twelve Data 장기 backfill 가능 기간 및 무료 호출 제한 재검증
+- [ ] 초기 지원 Benchmark 목록 확정 (1차 SPY 후보)
+- [ ] Benchmark 공용 Master/가격이력 모델 설계
+- [ ] Benchmark 선택값의 Portfolio 연결 방식 확정
 - [ ] KRX 및 공공 API의 실제 제공 데이터·기간·호출 제한 재검증
 - [ ] 데이터 이용약관 및 서비스 재배포 가능 범위 확인
 - [ ] 분배금/수정주가/Total Return 처리 정책 결정
@@ -243,7 +387,9 @@ portfolio_daily_snapshot
 - KRX/Open API 연동 구현
 - 과거 가격 backfill 실행
 - CAGR/MDD/Sharpe/기여도 계산 코드 구현
-- 투자 분석 화면 추가
+- 투자 분석 화면 구현
+- Benchmark 가격 수집 배치 구현
+- Benchmark 선택 UI 구현
 - 기존 `market_price_snapshot` 보존정책 변경
 
 즉 본 문서는 **향후 분석 기능을 위한 작업 예약 및 설계 메모**이며 현재 개발 범위를 확장하지 않는다.
