@@ -18,7 +18,9 @@
 5. Design Conformance 단계에서는 폰트 래스터라이징, 안티앨리어싱 등 환경 차이를 고려해 자동 diff와 Human Review를 함께 사용한다.
 6. 금액 표시는 반올림하지 않으며 실제 구현에서는 정밀 숫자 타입을 사용한다.
 
-## 승인 화면
+## 등록 화면과 승인 이력
+
+현재 승인 상태는 각 패키지의 `screen-spec.md`를 확인한다. 과거 승인 이력이 새 하위 화면 초안의 승인을 의미하지 않는다.
 
 | Screen | Package | Legacy 상세 명세 |
 |---|---|---|
@@ -27,7 +29,7 @@
 | SCR-011 부채 관리 | `screens/debt-management/` | `docs/product/screens/SCR-011-debt-management.md` |
 | SCR-020 투자 포트폴리오 | `screens/investment-portfolio/` | `docs/product/screens/SCR-020-investment-portfolio.md` |
 | SCR-022 투자 내역 | `screens/investment-history/` | `docs/product/screens/SCR-022-investment-history.md` |
-| SCR-050 계좌·카드 정보 관리 | `screens/account-card-management/` | `docs/product/screens/SCR-050-account-card-management.md` |
+| SCR-050 계좌·카드 정보 관리 — 6개 화면 분리 초안 | [screens/account-card-management/](./screens/account-card-management/README.md) | `docs/product/screens/SCR-050-account-card-management.md` |
 
 ## Reference 파일 규칙
 
@@ -43,4 +45,10 @@ reference-empty.png
 reference-error.png
 ```
 
-`reference.png`가 존재할 경우 해당 파일을 최우선 Visual Source of Truth로 사용한다.
+`reference.png`가 존재할 경우 해당 파일을 최우선 Visual Source of Truth로 사용한다. 단, 패키지 설명에서 이전 시안으로 명시한 이미지는 현재 승인 이미지로 자동 적용하지 않는다.
+
+### SCR-050 화면 분리 전환
+
+2026-10-05부터 계좌·카드 화면군은 [6개 하위 화면 초안](./screens/account-card-management/screen-spec.md)으로 관리한다. 루트 `screens/account-card-management/reference.png`는 이전 통합 시안으로 보존하며, 명의 설정·결제계좌·상세 블록/버튼 등 새 사용자 합의와 충돌하는 과거 구성을 강제하지 않는다.
+
+새 이미지는 각 하위 폴더의 `reference.png`로 업로드한 뒤 정합성 검토와 승인을 별도로 기록한다. 현재는 업로드 대기이며, 업로드 또는 문서 초안 추가만으로 디자인 승인·구현 완료·Golden 생성을 의미하지 않는다. 구체적인 경로와 미정 사항은 [화면별 업로드 안내](./screens/account-card-management/README.md)를 따른다.
