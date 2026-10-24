@@ -1,4 +1,5 @@
 @import "../styles/finance.css";
+@import "../styles/account-card.css";
 
 :root { --green: #148363; --green-soft: #eef8f4; --text: #222a30; --muted: #66717b; --border: #e9edef; --background: #fafbfc; }
 * { box-sizing: border-box; }

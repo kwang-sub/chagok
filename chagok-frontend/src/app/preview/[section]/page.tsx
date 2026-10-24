@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { requireSession } from "@/features/auth/session.server";
 
@@ -7,6 +7,7 @@ const sections: Record<string, string> = { assets: "자산", debt: "부채", "ne
 export default async function PreviewPage({ params }: { params: Promise<{ section: string }> }) {
   await requireSession();
   const { section } = await params;
+  if (section === "cards") redirect("/accounts");
   const title = sections[section];
   if (!title) notFound();
   return <AppShell><section className="panel empty-state"><h1>{title}</h1><p>이 화면은 이번 UI 구현 범위에 포함되지 않았습니다.</p><p>실제 등록·조회 기능은 아직 연결되지 않았습니다.</p><Link className="button primary" href="/">대시보드로 돌아가기</Link></section></AppShell>;

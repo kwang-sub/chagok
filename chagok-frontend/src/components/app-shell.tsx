@@ -13,14 +13,16 @@ const navigation = [
   { label: "현금흐름", icon: "⇄", href: "/preview/cash-flow" },
   { label: "부채", icon: "▱", href: "/preview/debt" },
   { label: "보고서", icon: "▧", href: "/preview/reports" },
-  { label: "계좌·카드", icon: "▥", href: "/preview/cards" },
+  { label: "계좌·카드", icon: "▥", href: "/accounts" },
   { label: "설정", icon: "⚙", href: "/settings" },
 ];
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
-  const active = (href: string) => pathname === href || (href === "/investments" && pathname.startsWith("/investments/"));
+  const active = (href: string) => pathname === href
+    || (href === "/investments" && pathname.startsWith("/investments/"))
+    || (href === "/accounts" && (pathname.startsWith("/accounts/") || pathname === "/cards" || pathname.startsWith("/cards/")));
   return <div className="app-shell">
     <a className="skip-link" href="#main">본문으로 이동</a>
     <aside className={`sidebar ${expanded ? "is-open" : ""}`}>
